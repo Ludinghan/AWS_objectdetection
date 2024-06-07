@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Detection App</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        color: #333;
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+    }
+
+    h1, h2 {
+        color: #0056b3;
+    }
+
+    input[type="text"], input[type="file"] {
+        width: 100%;
+        padding: 8px;
+        margin-top: 8px;
+        margin-bottom: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+
+    button {
+        background-color: #0056b3;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+
+    button:hover {
+        background-color: #004494;
+    }
+
+    label {
+        margin-top: 20px;
+    }
+
+    #response, #modifyTagResponse {
+        background-color: #e9e9e9;
+        padding: 10px;
+        margin-top: 15px;
+        border-radius: 5px;
+    }
+</style>
+</head>
+<body>
+<h1>Image Detection</h1>
+<input type="file" id="fileInput" accept="image/jpeg">
+<button onclick="uploadImage()">Upload Image</button>
+<p id="response"></p>
+
+<h2>Search images based on tags</h2>
+<form>
+    <label>The tag name that needs to be queried:</label><input type="text" id="tags" placeholder="Tag (split by comma)">
+    <button type="button" onclick="findImagesBasedOnTags()">queryImages</button>
+</form>
+<p id="searchresponse"></p>
+
+
+<h2>Image label management</h2>
+<form>
+    <label>Image URL:</label><input type="text" id="image_url">
+    <label>Add Tag:</label><input type="text" id="add_tags" placeholder="Tag to add (split by comma)">
+    <button type="button" onclick="modifyImageTags()">modifyImageTags</button>
+</form>
+<p id="modifyTagResponse"></p>
+
+<h2>Delete Image</h2>
+<label>Image URL:</label><input type="text" id="image_url_to_delete">
+<button type="button" onclick="deleteImage()">deleteImage</button>
+<p id="deleteresponse"></p>
+
+ <script>
+       function uploadImage() {
+            var fileInput = document.getElementById('fileInput');
+            var file = fileInput.files[0];
+            var fileName = file.name;
+         var apiUrl = 'https://e16avn9i42.execute-api.us-east-1.amazonaws.com/v2-nogate/object-detection-tagging/' + encodeURIComponent(fileName);
+            if (!file) {
+                document.getElementById('response').innerText = 'Please select a file to upload.';
+                return;
+            }
+
+            // 创建一个新的 FileReader 对象
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                var imageData = event.target.result;
+
+                // 创建请求头
+                var myHeaders = new Headers();
+                myHeaders.append("Content-Type", "image/jpeg");
+                myHeaders.append("Authorization", "nNaS4Ojd705ku7jOqvdsC56WU87fcW5haXl1tm7K"); // 添加 Token，替换 'your_token_here' 为实际的 Token
+
+                // 发送请求
+                fetch(apiUrl , {
+                    method: 'PUT',
+                    headers: myHeaders,
+                    body: imageData  // 直接将图片数据作为请求体发送
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('response').innerText = 'Image uploaded successfully: ' + JSON.stringify(data);
+                })
+                .catch(error => {
+                    document.getElementById('response').innerText = 'Image uploaded successfully ';
+                });
+            };
+
+            // 以 ArrayBuffer 形式读取文件内容
+            reader.readAsArrayBuffer(file);
+        }
+
+       // Function to find images based on tags
+       function findImagesBasedOnTags() {
+            var tags = document.getElementById('tags').value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+
+            var myHeaders = new Headers();
+            myHeaders.append("Authorization", "Ph3ibQBpZ92eMm5B1BxWc1ho1ZKlLEXvKFqTiHr7");
+            myHeaders.append("Content-Type", "application/json");
+
+            var raw = JSON.stringify({
+                    "http-method": "POST",
+                    "body-json": {
+                        "tags": tags
+                    }
+            });
+
+            var requestOptions = {
+                method: 'POST',
+                headers: myHeaders,
+                body: raw,
+                redirect: 'follow'
+            };
+
+            fetch("https://verlwz47oa.execute-api.us-east-1.amazonaws.com/v2-nogate/DynamoDBManager", requestOptions)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log(result);
+                    document.getElementById('searchresponse').innerText = 'Images ' + JSON.stringify(result);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('searchresponse').innerText = 'Error finding images: ' + error.message;
+                });
+        }
+
+       // Function to modifyImageTags
+ function modifyImageTags() {
+    var imageUrl = document.getElementById('image_url').value;
+    var addTags = document.getElementById('add_tags').value.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+
+    var myHeaders = new Headers();
+    myHeaders.append("Authorization", "Ph3ibQBpZ92eMm5B1BxWc1ho1ZKlLEXvKFqTiHr7");
+    myHeaders.append("Content-Type", "application/json");
+
+    var raw = JSON.stringify({
+        "http-method": "PUT",
+        "body-json": {
+            "tags": addTags,
+            "url": imageUrl
+        }
+    });
+
+    var requestOptions = {
+        method: 'PUT',
+        headers: myHeaders,
+        body: raw,
+        redirect: 'follow'
+    };
+
+    fetch("https://verlwz47oa.execute-api.us-east-1.amazonaws.com/v2-nogate/DynamoDBManager", requestOptions)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(result => {
+            console.log(result);
+            if (result.message === 'Tags added successfully') {
+                document.getElementById('modifyTagResponse').innerText = 'Tags added successfully.';
+            } else {
+                document.getElementById('modifyTagResponse').innerText = 'Tags modified: ' + JSON.stringify(result);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('modifyTagResponse').innerText = 'Error modifying tags: ' + error.message;
+        });
+}
+
+
+ 
+     // Function to delete an image
+    function deleteImage() {
+        const token = document.getElementById('token_delete').value;
+        const imageUrl = document.getElementById('image_url_to_delete').value;
+        const apiUrl = 'https://verlwz47oa.execute-api.us-east-1.amazonaws.com/v2-nogate/DynamoDBManager';
+        const data = {
+            "http-method": "DELETE",
+            "body-json": {
+                "url": imageUrl
+            }
+        };
+
+        fetch(apiUrl, {
+            method: 'POST', // 确保这里与 API Gateway 配置的 HTTP 方法一致
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization':  'SvOXmp1fOd9cnFWItK5Ub86kJdLxzYTq76sgRd1T' // 确保 Token 使用正确的格式
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Failed to fetch');
+            }
+        })
+        .then(data => {
+            document.getElementById('deleteresponse').innerText = 'Response: ' + JSON.stringify(data);
+        })
+        .catch(error => {
+            document.getElementById('deleteresponse').innerText = 'Error: ' + error.message;
+        });
+    }
+    </script>
+</body>
+</html>
